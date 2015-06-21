@@ -178,6 +178,9 @@ public class SpatialPlugin extends ServerPlugin {
             Geometry geometry = reader.read(geometryWKT);
             SpatialDatabaseRecord record = spatialLayer.getIndex().get(geometryNodeId);
             spatialLayer.getGeometryEncoder().encodeGeometry(geometry, record.getGeomNode());
+
+            spatialLayer.update(geometryNodeId, geometry);
+
             tx.success();
             return singleton(record.getGeomNode());
         } catch (Exception e) {

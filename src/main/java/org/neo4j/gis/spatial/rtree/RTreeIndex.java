@@ -617,6 +617,9 @@ public class RTreeIndex implements SpatialIndexWriter {
 		for (Node e : entries) {
 			Envelope eEnvelope = getChildNodeEnvelope(e, relationshipType);
 			for (Node e1 : entries) {
+				if(e.getId() == e1.getId())
+					continue;
+
 				Envelope e1Envelope = getChildNodeEnvelope(e1, relationshipType);
 				double deadSpace = getArea(createEnvelope(eEnvelope, e1Envelope)) - getArea(eEnvelope) - getArea(e1Envelope);
 				if (deadSpace > worst) {

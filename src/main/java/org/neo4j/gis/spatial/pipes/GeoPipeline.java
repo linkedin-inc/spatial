@@ -20,25 +20,17 @@
 package org.neo4j.gis.spatial.pipes;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import org.geotools.data.neo4j.Neo4jFeatureBuilder;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.collection.AbstractFeatureCollection;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.geometry.jts.ReferencedEnvelope;
+import org.neo4j.gis.spatial.*;
+import org.neo4j.gis.spatial.rtree.RTreeRelationshipTypes;
 import org.neo4j.gis.spatial.rtree.filter.SearchAll;
 import org.neo4j.gis.spatial.rtree.filter.SearchFilter;
-import org.neo4j.gis.spatial.Constants;
-import org.neo4j.gis.spatial.Layer;
-import org.neo4j.gis.spatial.SpatialDatabaseRecord;
-import org.neo4j.gis.spatial.SpatialRecord;
-import org.neo4j.gis.spatial.SpatialTopologyUtils;
 import org.neo4j.gis.spatial.filter.SearchIntersectWindow;
 import org.neo4j.gis.spatial.filter.SearchRecords;
 import org.neo4j.gis.spatial.pipes.filtering.FilterCQL;
@@ -100,7 +92,10 @@ import org.neo4j.gis.spatial.pipes.processing.SymDifference;
 import org.neo4j.gis.spatial.pipes.processing.Union;
 import org.neo4j.gis.spatial.pipes.processing.UnionAll;
 import org.neo4j.gis.spatial.pipes.processing.WellKnownText;
+import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.helpers.collection.IteratorUtil;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
@@ -383,6 +378,56 @@ public class GeoPipeline extends Pipeline<GeoPipeFlow,GeoPipeFlow> {
 		Envelope searchWindow = SpatialTopologyUtils.createEnvelopeForGeometryDensityEstimate(layer, point, numberOfItemsToFind);
 		return startNearestNeighborSearch(layer, point, searchWindow);
 	}
+
+    /**
+     * Calculates the distance between Layer items nearest to the given point and the given point.
+     * The search window created is based on Layer items density and it could lead to no results.
+     *
+     * @param layer
+     * @param point
+     * @param numberOfItemsToFind tries to find this number of items for comparison
+     * @return geoPipeline
+     */
+    public static Iterable<Node> startKNearestNeighborSearch(Layer layer, Coordinate point, int numberOfItemsToFind){
+        if(layer.getIndex().count() < numberOfItemsToFind)
+            return layer.getIndex().getAllIndexedNodes();
+
+        List<Node> result = new ArrayList<>();
+
+        Node node = layer.getLayerNode().getSingleRelationship(RTreeRelationshipTypes.RTREE_ROOT, Direction.OUTGOING).getEndNode();
+
+        PriorityQueue<SingleNode> queue = new PriorityQueue<>();
+
+        while (node != null) {
+            List<Node> nodes = getNextNode(node);
+
+            for (Node n : nodes) {
+                SingleNode singleNode = new SingleNode(n, point);
+                queue.add(singleNode);
+            }
+
+            while (!queue.isEmpty() && queue.peek().knnItem && result.size() < numberOfItemsToFind)
+                result.add(queue.poll().node);
+
+            if (result.size() == numberOfItemsToFind) break;
+
+            node = queue.poll().node;
+
+        }
+
+        return  IteratorUtil.asIterable(result.iterator());
+    }
+
+    private static List<Node> getNextNode(Node node){
+        List<Node> nodes = new ArrayList<Node>();
+        Iterable<Relationship> relationships =  node.getRelationships(Direction.OUTGOING);
+
+        for(Relationship r : relationships){
+            nodes.add(r.getEndNode());
+        }
+
+        return nodes;
+    }
 	
 	/**
 	 * Calculates the distance between Layer items inside the given search window and the given point.

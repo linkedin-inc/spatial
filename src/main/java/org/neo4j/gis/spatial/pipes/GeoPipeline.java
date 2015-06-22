@@ -92,6 +92,7 @@ import org.neo4j.gis.spatial.pipes.processing.SymDifference;
 import org.neo4j.gis.spatial.pipes.processing.Union;
 import org.neo4j.gis.spatial.pipes.processing.UnionAll;
 import org.neo4j.gis.spatial.pipes.processing.WellKnownText;
+import org.neo4j.gis.spatial.rtree.filter.SearchResults;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -388,9 +389,11 @@ public class GeoPipeline extends Pipeline<GeoPipeFlow,GeoPipeFlow> {
      * @param numberOfItemsToFind tries to find this number of items for comparison
      * @return geoPipeline
      */
-    public static Iterable<Node> startKNearestNeighborSearch(Layer layer, Coordinate point, int numberOfItemsToFind){
-        if(layer.getIndex().count() < numberOfItemsToFind)
-            return layer.getIndex().getAllIndexedNodes();
+    public static GeoPipeline startKNearestNeighborSearch(Layer layer, Coordinate point, int numberOfItemsToFind){
+        if(layer.getIndex().count() < numberOfItemsToFind) {
+            SearchRecords results =  new SearchRecords(layer, new SearchResults(layer.getIndex().getAllIndexedNodes()));
+            return start(layer, results);
+        }
 
         List<Node> result = new ArrayList<>();
 
@@ -415,7 +418,9 @@ public class GeoPipeline extends Pipeline<GeoPipeFlow,GeoPipeFlow> {
 
         }
 
-        return  IteratorUtil.asIterable(result.iterator());
+        SearchRecords results =  new SearchRecords(layer, new SearchResults(IteratorUtil.asIterable(result.iterator())));
+
+        return start(layer, results);
     }
 
     private static List<Node> getNextNode(Node node){

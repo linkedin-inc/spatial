@@ -27,12 +27,14 @@ import java.util.List;
 import java.util.Map;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.neo4j.gis.spatial.filter.SearchRecords;
 import org.neo4j.gis.spatial.rtree.NullListener;
 import org.neo4j.gis.spatial.EditableLayer;
 import org.neo4j.gis.spatial.SpatialDatabaseRecord;
 import org.neo4j.gis.spatial.SpatialDatabaseService;
 import org.neo4j.gis.spatial.pipes.GeoPipeFlow;
 import org.neo4j.gis.spatial.pipes.GeoPipeline;
+import org.neo4j.gis.spatial.rtree.filter.SearchResults;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.index.Index;
@@ -52,10 +54,12 @@ public class LayerNodeIndex implements Index<Node>
     public static final String WITHIN_WKT_GEOMETRY_QUERY = "withinWKTGeometry";	// Query type
     public static final String WITHIN_DISTANCE_QUERY = "withinDistance";		// Query type
     public static final String BBOX_QUERY = "bbox";								// Query type
+    public static final String NEAREST_QUERY = "nearestNeighborhood";
     public static final String CQL_QUERY = "CQL";								// Query type (unused)
     
     public static final String ENVELOPE_PARAMETER = "envelope";					// Query parameter key: envelope for within query
     public static final String DISTANCE_IN_KM_PARAMETER = "distanceInKm";		// Query parameter key: distance for withinDistance query
+    public static final String PEOPLE_LIMIT = "peopleLimit";		            // Query parameter key: number of people needed to query
     public static final String POINT_PARAMETER = "point";						// Query parameter key: relative to this point for withinDistance query
     
     private String nodeLookupIndexName;
@@ -210,6 +214,42 @@ public class LayerNodeIndex implements Index<Node>
             }
 
         }
+
+        else if ( key.equals(NEAREST_QUERY) )
+        {
+            Double[] point = null;
+            Double limit = null;
+
+            if (params.getClass() == String.class)
+            {
+                try
+                {
+                    @SuppressWarnings("unchecked")
+                    List<Double> coordsAndDistance = (List<Double>) new JSONParser().parse( (String) params );
+                    point = new Double[2];
+                    point[0] = coordsAndDistance.get(0);
+                    point[1] = coordsAndDistance.get(1);
+                    limit = coordsAndDistance.get(2);
+                }
+                catch ( ParseException e )
+                {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+
+            else
+            {
+                Map<?, ?> p = (Map<?, ?>) params;
+                point = (Double[]) p.get( POINT_PARAMETER );
+                limit = (Double) p.get( PEOPLE_LIMIT );
+            }
+
+            Coordinate start = new Coordinate(point[1], point[0]);
+            GeoPipeline pipeline = GeoPipeline.startKNearestNeighborSearch(layer, start, limit.intValue());
+
+            return new GeoPipeFlowHits(pipeline.toList(), layer);
+        }
         
         else if ( key.equals( WITHIN_DISTANCE_QUERY ) )
         {
@@ -277,7 +317,7 @@ public class LayerNodeIndex implements Index<Node>
         {
             throw new UnsupportedOperationException( String.format(
                     "only %s, %s and %s are implemented.", WITHIN_QUERY,
-                    WITHIN_DISTANCE_QUERY, BBOX_QUERY ) );
+                    WITHIN_DISTANCE_QUERY, BBOX_QUERY, NEAREST_QUERY ) );
         }
         return null;
     }

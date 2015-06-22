@@ -3,6 +3,7 @@ package org.neo4j.gis.spatial;
 import com.vividsolutions.jts.geom.Coordinate;
 import org.neo4j.gis.spatial.rtree.Envelope;
 import org.neo4j.gis.spatial.rtree.EnvelopeDecoderFromDoubleArray;
+import org.neo4j.gis.spatial.rtree.RTreeIndex;
 import org.neo4j.gis.spatial.rtree.RTreeRelationshipTypes;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
@@ -19,8 +20,8 @@ public class SingleNode implements Comparable<SingleNode>{
 
     Envelope envelope;
 
-    EnvelopeDecoderFromDoubleArray child_encoder = new EnvelopeDecoderFromDoubleArray("bbox_xx");
-    EnvelopeDecoderFromDoubleArray leaf_encoder = new EnvelopeDecoderFromDoubleArray("bbox_abc");
+    EnvelopeDecoderFromDoubleArray child_encoder = new EnvelopeDecoderFromDoubleArray(RTreeIndex.INDEX_PROP_BBOX);
+    EnvelopeDecoderFromDoubleArray leaf_encoder = new EnvelopeDecoderFromDoubleArray(Constants.PROP_BBOX);
 
 
     public SingleNode(Node node, Coordinate core){

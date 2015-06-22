@@ -23,11 +23,14 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.WKTReader;
+
+import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.Map;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.neo4j.gis.spatial.filter.SearchRecords;
+import org.neo4j.gis.spatial.pipes.processing.InteriorPoint;
 import org.neo4j.gis.spatial.rtree.NullListener;
 import org.neo4j.gis.spatial.EditableLayer;
 import org.neo4j.gis.spatial.SpatialDatabaseRecord;
@@ -61,6 +64,7 @@ public class LayerNodeIndex implements Index<Node>
     public static final String DISTANCE_IN_KM_PARAMETER = "distanceInKm";		// Query parameter key: distance for withinDistance query
     public static final String PEOPLE_LIMIT = "peopleLimit";		            // Query parameter key: number of people needed to query
     public static final String POINT_PARAMETER = "point";						// Query parameter key: relative to this point for withinDistance query
+    public static final String SKIP = "point";						            // Query parameter key: relative to this point for withinDistance query
     
     private String nodeLookupIndexName;
     
@@ -218,18 +222,23 @@ public class LayerNodeIndex implements Index<Node>
         else if ( key.equals(NEAREST_QUERY) )
         {
             Double[] point = null;
-            Double limit = null;
+            Integer limit = null;
+            Integer skip = null;
+            Double distance = null;
 
             if (params.getClass() == String.class)
             {
                 try
                 {
                     @SuppressWarnings("unchecked")
-                    List<Double> coordsAndDistance = (List<Double>) new JSONParser().parse( (String) params );
+                    List<Number> coordsAndDistance = (List<Number>) new JSONParser().parse( (String) params );
                     point = new Double[2];
-                    point[0] = coordsAndDistance.get(0);
-                    point[1] = coordsAndDistance.get(1);
-                    limit = coordsAndDistance.get(2);
+                    point[0] = coordsAndDistance.get(0).doubleValue();
+                    point[1] = coordsAndDistance.get(1).doubleValue();
+                    limit = coordsAndDistance.get(2).intValue();
+                    skip = coordsAndDistance.get(3).intValue();
+                    distance = coordsAndDistance.get(4).doubleValue();
+
                 }
                 catch ( ParseException e )
                 {
@@ -242,11 +251,13 @@ public class LayerNodeIndex implements Index<Node>
             {
                 Map<?, ?> p = (Map<?, ?>) params;
                 point = (Double[]) p.get( POINT_PARAMETER );
-                limit = (Double) p.get( PEOPLE_LIMIT );
+                limit = (Integer) p.get( PEOPLE_LIMIT );
+                skip = (Integer) p.get( SKIP );
+                distance = (Double) p.get( DISTANCE_IN_KM_PARAMETER );
             }
 
             Coordinate start = new Coordinate(point[1], point[0]);
-            GeoPipeline pipeline = GeoPipeline.startKNearestNeighborSearch(layer, start, limit.intValue());
+            GeoPipeline pipeline = GeoPipeline.startKNearestNeighborSearch(layer, start, limit, distance, skip);
 
             return new GeoPipeFlowHits(pipeline.toList(), layer);
         }

@@ -389,7 +389,9 @@ public class GeoPipeline extends Pipeline<GeoPipeFlow,GeoPipeFlow> {
      * @param numberOfItemsToFind tries to find this number of items for comparison
      * @return geoPipeline
      */
-    public static GeoPipeline startKNearestNeighborSearch(Layer layer, Coordinate point, int numberOfItemsToFind){
+    public static GeoPipeline startKNearestNeighborSearch(Layer layer, Coordinate point, int numberOfItemsToFind, double distance ,int skip){
+        int number = numberOfItemsToFind + skip;
+
         if(layer.getIndex().count() < numberOfItemsToFind) {
             SearchRecords results =  new SearchRecords(layer, new SearchResults(layer.getIndex().getAllIndexedNodes()));
             return start(layer, results);
@@ -406,17 +408,28 @@ public class GeoPipeline extends Pipeline<GeoPipeFlow,GeoPipeFlow> {
 
             for (Node n : nodes) {
                 SingleNode singleNode = new SingleNode(n, point);
-                queue.add(singleNode);
+
+                if(singleNode.getDistance() < distance)
+                    queue.add(singleNode);
             }
 
-            while (!queue.isEmpty() && queue.peek().knnItem && result.size() < numberOfItemsToFind)
+            while (!queue.isEmpty() && queue.peek().knnItem && result.size() < number)
                 result.add(queue.poll().node);
 
-            if (result.size() == numberOfItemsToFind) break;
+            if (result.size() == number || queue.isEmpty()) break;
 
             node = queue.poll().node;
 
         }
+
+        int len = result.size();
+
+        if(len <= skip)
+            result = new ArrayList<>();
+        else if (len <= number)
+            result = result.subList(skip, len);
+        else
+            result = result.subList(skip, number);
 
         SearchRecords results =  new SearchRecords(layer, new SearchResults(IteratorUtil.asIterable(result.iterator())));
 

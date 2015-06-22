@@ -1,19 +1,19 @@
 /**
  * Copyright (c) 2010-2013 "Neo Technology,"
  * Network Engine for Objects in Lund AB [http://neotechnology.com]
- *
+ * <p>
  * This file is part of Neo4j.
- *
+ * <p>
  * Neo4j is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- *
+ * <p>
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- *
+ * <p>
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -44,79 +44,91 @@ import java.util.List;
  *
  */
 public class GeoPipeFlowHits extends CatchingIteratorWrapper<Node, GeoPipeFlow> implements IndexHits<Node> {
-	private final int size;
-	private EditableLayer layer;
-    private GeoPipeFlow current;
-	private GraphDatabaseService database;
+        private final int size;
+        private EditableLayer layer;
+        private GeoPipeFlow current;
+        private GraphDatabaseService database;
 
-	public GeoPipeFlowHits(List<GeoPipeFlow> hits, EditableLayer layer) {
-		super(hits.iterator());
-		this.size = hits.size();
-		SpatialDatabaseService spatialDatabase = layer.getSpatialDatabase();
-		this.layer = layer;
-		database = spatialDatabase.getDatabase();
-	}
+        public GeoPipeFlowHits(List<GeoPipeFlow> hits, EditableLayer layer) {
+            super(hits.iterator());
+            this.size = hits.size();
+            SpatialDatabaseService spatialDatabase = layer.getSpatialDatabase();
+            this.layer = layer;
+            database = spatialDatabase.getDatabase();
+        }
 
-	public int size() {
-		return this.size;
-	}
+    public int size() {
+        return this.size;
+    }
 
-	public float currentScore() {
+    public float currentScore() {
         Number value = null;
-        if (current!=null && current.hasProperty("OrthodromicDistance")) value =  (Number)current.getProperty("OrthodromicDistance");
-		return value == null ? 0 : value.floatValue();
-	}
+        if (current != null && current.hasProperty("OrthodromicDistance"))
+            value = (Number) current.getProperty("OrthodromicDistance");
+        return value == null ? 0 : value.floatValue();
+    }
 
-	@Override
-	public ResourceIterator<Node> iterator() {
-		return this;
-	}
+    @Override
+    public ResourceIterator<Node> iterator() {
+        return this;
+    }
 
-	@Override
-	public void close() {
-		//Not sure if this means anything when operating on a Collection
-	}
+    @Override
+    public void close() {
+        //Not sure if this means anything when operating on a Collection
+    }
 
-	@Override
-	public Node getSingle() {
-		try {
-			return IteratorUtil.singleOrNull((Iterator<Node>) this);
-		} finally {
-			close();
-		}
-	}
+    @Override
+    public Node getSingle() {
+        try {
+            return IteratorUtil.singleOrNull((Iterator<Node>) this);
+        } finally {
+            close();
+        }
+    }
 
-	@Override
-	protected Node underlyingObjectToObject(GeoPipeFlow current) {
+    @Override
+    protected Node underlyingObjectToObject(GeoPipeFlow current) {
         this.current = current;
 
         SpatialDatabaseRecord record = current.getRecord();
-        // It looks to be possible to have SpatialDatabaseRecords without any
-		// associated 'real' node. If this is the case is it OK to just return
-		// null or should we return the geomNode
-		
-		long idString = record.getNodeId();
 
-		Node result = null;
-		
-		try {
-			result = database.getNodeById(idString);
-		}catch (NotFoundException e){
-			return null;
+        // It looks to be possible to have SpatialDatabaseRecords without any
+        // associated 'real' node. If this is the case is it OK to just return
+        // null or should we return the geomNode
+
+        long nodeID = record.getNodeId();
+        Node result;
+
+        try {
+            result = database.getNodeById(nodeID);
+        } catch (NotFoundException e) {
+            return null;
+        }
+
+        return result;
+
+		/*
+		Object idString = record.getProperty("id");
+        Node result = null;
+
+		if(idString != null){
+			result = database.getNodeById(Long.valueOf(idString.toString()));
 		}
 
-		
 		return result;
-	}
+		*/
 
-	@Override
-	protected void itemDodged(GeoPipeFlow item) {
-		layer.delete(item.getRecord().getNodeId());
-	}
+    }
 
-	@Override
-	protected boolean exceptionOk(Throwable t) {
-		return t instanceof NotFoundException;
-	}
+    @Override
+    protected void itemDodged(GeoPipeFlow item) {
+        layer.delete(item.getRecord().getNodeId());
+    }
+
+    @Override
+    protected boolean exceptionOk(Throwable t) {
+        return t instanceof NotFoundException;
+    }
 
 }

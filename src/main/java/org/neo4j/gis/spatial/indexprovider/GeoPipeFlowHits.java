@@ -41,21 +41,20 @@ import java.util.List;
  * it from the layer
  *
  * @author ben
- *
  */
 public class GeoPipeFlowHits extends CatchingIteratorWrapper<Node, GeoPipeFlow> implements IndexHits<Node> {
-        private final int size;
-        private EditableLayer layer;
-        private GeoPipeFlow current;
-        private GraphDatabaseService database;
+    private final int size;
+    private EditableLayer layer;
+    private GeoPipeFlow current;
+    private GraphDatabaseService database;
 
-        public GeoPipeFlowHits(List<GeoPipeFlow> hits, EditableLayer layer) {
-            super(hits.iterator());
-            this.size = hits.size();
-            SpatialDatabaseService spatialDatabase = layer.getSpatialDatabase();
-            this.layer = layer;
-            database = spatialDatabase.getDatabase();
-        }
+    public GeoPipeFlowHits(List<GeoPipeFlow> hits, EditableLayer layer) {
+        super(hits.iterator());
+        this.size = hits.size();
+        SpatialDatabaseService spatialDatabase = layer.getSpatialDatabase();
+        this.layer = layer;
+        database = spatialDatabase.getDatabase();
+    }
 
     public int size() {
         return this.size;
@@ -97,28 +96,26 @@ public class GeoPipeFlowHits extends CatchingIteratorWrapper<Node, GeoPipeFlow> 
         // associated 'real' node. If this is the case is it OK to just return
         // null or should we return the geomNode
 
-        long nodeID = record.getNodeId();
-        Node result;
+//        long nodeID = record.getNodeId();
+//        Node result;
+//
+//        try {
+//            result = database.getNodeById(nodeID);
+//        } catch (NotFoundException e) {
+//            return null;
+//        }
+//
+//        return result;
 
-        try {
-            result = database.getNodeById(nodeID);
-        } catch (NotFoundException e) {
-            return null;
+        // this need hack id property, in order to process cypher query
+        Object idString = record.getProperty("id");
+        Node result = null;
+
+        if (idString != null) {
+            result = database.getNodeById(Long.valueOf(idString.toString()));
         }
 
         return result;
-
-		/*
-		Object idString = record.getProperty("id");
-        Node result = null;
-
-		if(idString != null){
-			result = database.getNodeById(Long.valueOf(idString.toString()));
-		}
-
-		return result;
-		*/
-
     }
 
     @Override

@@ -21,4 +21,4 @@ target
 /bin
 LineString.*
 results.*
-
+upload.sh
